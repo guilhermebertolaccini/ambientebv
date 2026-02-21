@@ -4,8 +4,8 @@ import axios from 'axios';
 @Injectable()
 export class CpcService {
     private readonly logger = new Logger(CpcService.name);
-    private readonly baseUrl = 'https://api-cpc.paschoalotto.com.br/GW.BancoBV.WhatsAppCPC/api/WhatsAppCPCGw';
-    private readonly authHeader = 'Basic VmVuZDp2VjMybmQjcw=='; // Base64 de "Vend:vV32nd#s"
+    private readonly baseUrl = process.env.CPC_API_URL || 'https://api-cpc.paschoalotto.com.br/GW.BancoBV.WhatsAppCPC/api/WhatsAppCPCGw';
+    private readonly authHeader = process.env.CPC_API_AUTH || 'Basic VmVuZDp2VjMybmQjcw=='; // Base64 de "Vend:vV32nd#s"
 
     /**
      * Valida se o contrato existe na base (diferente de baixado).
