@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { WebhooksController } from './webhooks.controller';
 import { WebhooksService } from './webhooks.service';
 import { PrismaService } from '../prisma.service';
@@ -10,24 +10,20 @@ import { ControlPanelModule } from '../control-panel/control-panel.module';
 import { BlocklistModule } from '../blocklist/blocklist.module';
 import { TabulationsModule } from '../tabulations/tabulations.module';
 import { SystemEventsModule } from '../system-events/system-events.module';
-
 import { EvolutionModule } from '../evolution/evolution.module';
-import { AutomationsModule } from '../automations/automations.module';
 import { CpcModule } from '../cpc/cpc.module';
-import { PrismaModule } from '../prisma/prisma.module';
 
 @Module({
   imports: [
-    PrismaModule,
     ConversationsModule,
     WebsocketModule,
-    forwardRef(() => LinesModule), // Use forwardRef
+    forwardRef(() => LinesModule),
     MediaModule,
     ControlPanelModule,
     BlocklistModule,
+    TabulationsModule,
     SystemEventsModule,
     EvolutionModule,
-    AutomationsModule,
     CpcModule,
   ],
   controllers: [WebhooksController],
