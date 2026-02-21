@@ -1081,6 +1081,15 @@ export default function Atendimento() {
       return;
     }
 
+    if (!newContactContract.trim()) {
+      toast({
+        title: "Contrato obrigatório",
+        description: "É obrigatório informar o número do contrato",
+        variant: "destructive",
+      });
+      return;
+    }
+
     // Se estiver usando template, verificar variáveis
     if (selectedTemplate) {
       const requiredVars = selectedTemplate.variables || [];
@@ -1357,8 +1366,8 @@ export default function Atendimento() {
                     <TooltipTrigger asChild>
                       <div
                         className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-xs ${isRealtimeConnected
-                            ? "bg-success/10 text-success"
-                            : "bg-muted text-muted-foreground"
+                          ? "bg-success/10 text-success"
+                          : "bg-muted text-muted-foreground"
                           }`}
                       >
                         {isRealtimeConnected ? (
@@ -1447,7 +1456,7 @@ export default function Atendimento() {
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="contract">Contrato</Label>
+                      <Label htmlFor="contract">Contrato *</Label>
                       <Input
                         id="contract"
                         placeholder="Número do contrato"
@@ -1588,6 +1597,10 @@ export default function Atendimento() {
                       onClick={handleNewConversation}
                       disabled={
                         isCreatingConversation ||
+                        !newContactName.trim() ||
+                        !newContactPhone.trim() ||
+                        !/^\d{3}$/.test(newContactCpf.trim()) ||
+                        !newContactContract.trim() ||
                         (!selectedTemplate &&
                           (!segmentAllowsFreeMessage ||
                             !newContactMessage.trim()))
