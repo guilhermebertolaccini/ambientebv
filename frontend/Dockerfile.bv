@@ -19,7 +19,7 @@ RUN npm run build && \
 # Instalar serve para servir arquivos estáticos
 RUN npm install -g serve
 
-EXPOSE 3069
+EXPOSE 3002
 
 # Servir aplicação buildada
-CMD ["serve", "-s", "dist", "-l", "3069"]
+CMD ["serve", "-s", "dist", "-l", "3002"]
