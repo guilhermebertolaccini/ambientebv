@@ -261,9 +261,18 @@ export default function Atendimento() {
           description: "Sua mensagem foi enviada com sucesso",
         });
 
-        // Se estava criando nova conversa, resetar loading
-        // O modal já foi fechado anteriormente, apenas resetar o estado
-        setIsCreatingConversation(false);
+        // Fechar modal de nova conversa se estiver aberto
+        if (isCreatingConversation) {
+          setIsCreatingConversation(false);
+          setIsNewConversationOpen(false);
+          setNewContactName("");
+          setNewContactPhone("");
+          setNewContactCpf("");
+          setNewContactContract("");
+          setNewContactMessage("");
+          setSelectedTemplate(null);
+          setTemplateVariables({});
+        }
 
         setConversations((prev) => {
           const existing = prev.find(
@@ -1138,20 +1147,10 @@ export default function Atendimento() {
     const selectedTemplateValue = selectedTemplate;
     const templateVariablesValue = { ...templateVariables };
 
-    // Fechar modal imediatamente e limpar campos
-    setIsNewConversationOpen(false);
-    setNewContactName("");
-    setNewContactPhone("");
-    setNewContactCpf("");
-    setNewContactContract("");
-    setNewContactMessage("");
-    setSelectedTemplate(null);
-    setTemplateVariables({});
-
-    // Mostrar toast de "Enviando mensagem..."
+    // Apenas mostrar o toast de andamento. O modal só fechará em caso de sucesso (message-sent).
     toast({
-      title: "Enviando mensagem...",
-      description: "Aguarde a confirmação de envio",
+      title: "Validando envio...",
+      description: "Aguarde a validação e envio da mensagem.",
     });
 
     try {
@@ -1228,6 +1227,14 @@ export default function Atendimento() {
 
         await loadConversations();
         setIsCreatingConversation(false);
+        setIsNewConversationOpen(false);
+        setNewContactName("");
+        setNewContactPhone("");
+        setNewContactCpf("");
+        setNewContactContract("");
+        setNewContactMessage("");
+        setSelectedTemplate(null);
+        setTemplateVariables({});
       }
       // Se usar WebSocket, o isCreatingConversation será resetado quando receber 'message-sent' ou 'message-error'
       // Não resetar aqui no finally para não interferir com o fluxo do WebSocket
@@ -1601,9 +1608,8 @@ export default function Atendimento() {
                         !newContactPhone.trim() ||
                         !/^\d{3}$/.test(newContactCpf.trim()) ||
                         !newContactContract.trim() ||
-                        (!selectedTemplate &&
-                          (!segmentAllowsFreeMessage ||
-                            !newContactMessage.trim()))
+                        (!selectedTemplate && !segmentAllowsFreeMessage) ||
+                        (!selectedTemplate && segmentAllowsFreeMessage && !newContactMessage.trim())
                       }
                     >
                       {isCreatingConversation ? (
