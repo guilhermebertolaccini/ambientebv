@@ -448,6 +448,65 @@ export class WebsocketGateway
       `📨 [WebSocket] handleSendMessage - User: ${user.name}, ContactPhone: ${data.contactPhone}, IsGroup: ${isGroupDebug}, MessageType: ${data.messageType || "text"}`,
     );
 
+    // IMPORTANTE: Verificações de CPC, repescagem e validação são APENAS para contatos individuais
+    // DEVEM OCORRER ANTES DA ATRIBUIÇÃO DE LINHA para não alocar linha a toa
+    if (!isGroupDebug) {
+      // Verificar CPC
+      const cpcCheck = await this.controlPanelService.canContactCPC(
+        data.contactPhone,
+        user.segment,
+      );
+      if (!cpcCheck.allowed) {
+        return { error: cpcCheck.reason };
+      }
+
+      // Verificar repescagem
+      const repescagemCheck = await this.controlPanelService.checkRepescagem(
+        data.contactPhone,
+        user.id,
+        user.segment,
+      );
+      if (!repescagemCheck.allowed) {
+        return { error: repescagemCheck.reason };
+      }
+
+      // --- INTEGRAÇÃO API WHATSAPP CPC ---
+      // Extrair o nome do segmento (precisamos do 'name' pois a API CPC espera o nome do segmento e não o ID)
+      let segmentName = 'Default';
+      if (user.segment) {
+        const segmentObj = await this.prisma.segment.findUnique({
+          where: { id: user.segment }
+        });
+        if (segmentObj) segmentName = segmentObj.name;
+      }
+
+      // Buscar dados do contato para extrair CPF e contrato
+      const contactCheck = await this.prisma.contact.findFirst({
+        where: { phone: data.contactPhone }
+      });
+
+      // Em 1x1 data.contactCpf/contactContract podem vir do form, no envio normal pegamos do banco
+      const cpfToValidate = data.contactCpf || contactCheck?.cpf || '';
+      const contractToValidate = data.contactContract || contactCheck?.contract || '';
+
+      if (!cpfToValidate || !contractToValidate) {
+        return { error: "CPF (3 dígitos) e Contrato são obrigatórios para validar o envio via WhatsAppCPC." };
+      }
+
+      const isContractValid = await this.cpcService.validateContract(cpfToValidate, contractToValidate, segmentName);
+      if (!isContractValid) {
+        client.emit("message-error", { error: "Contrato não localizado ou baixado na API CPC." });
+        return { error: "Contrato não localizado ou baixado na API CPC." };
+      }
+
+      const isAcionamentoOk = await this.cpcService.checkAcionamento(data.contactPhone, contractToValidate, segmentName);
+      if (!isAcionamentoOk) {
+        client.emit("message-error", { error: "Já existe CPC hoje para este cliente." });
+        return { error: "Já existe CPC para este contrato e telefone na data de hoje." };
+      }
+      // -----------------------------------
+    }
+
     // Buscar linha atual do operador (pode estar na tabela LineOperator ou no campo legacy)
     let currentLineId = user.line;
     if (!currentLineId) {
@@ -627,63 +686,7 @@ export class WebsocketGateway
       // Detectar se é grupo (grupos têm @g.us no contactPhone)
       const isGroup = data.contactPhone?.includes("@g.us") || false;
 
-      // IMPORTANTE: Verificações de CPC, repescagem e validação são APENAS para contatos individuais
       if (!isGroup) {
-        // Verificar CPC
-        const cpcCheck = await this.controlPanelService.canContactCPC(
-          data.contactPhone,
-          user.segment,
-        );
-        if (!cpcCheck.allowed) {
-          return { error: cpcCheck.reason };
-        }
-
-        // Verificar repescagem
-        const repescagemCheck = await this.controlPanelService.checkRepescagem(
-          data.contactPhone,
-          user.id,
-          user.segment,
-        );
-        if (!repescagemCheck.allowed) {
-          return { error: repescagemCheck.reason };
-        }
-
-        // --- INTEGRAÇÃO API WHATSAPP CPC ---
-        // Extrair o nome do segmento (precisamos do 'name' pois a API CPC espera o nome do segmento e não o ID)
-        let segmentName = 'Default';
-        if (user.segment) {
-          const segmentObj = await this.prisma.segment.findUnique({
-            where: { id: user.segment }
-          });
-          if (segmentObj) segmentName = segmentObj.name;
-        }
-
-        // Buscar dados do contato para extrair CPF e contrato
-        const contactCheck = await this.prisma.contact.findFirst({
-          where: { phone: data.contactPhone }
-        });
-
-        // Em 1x1 data.contactCpf/contactContract podem vir do form, no envio normal pegamos do banco
-        const cpfToValidate = data.contactCpf || contactCheck?.cpf || '';
-        const contractToValidate = data.contactContract || contactCheck?.contract || '';
-
-        if (!cpfToValidate || !contractToValidate) {
-          return { error: "CPF (3 dígitos) e Contrato são obrigatórios para validar o envio via WhatsAppCPC." };
-        }
-
-        const isContractValid = await this.cpcService.validateContract(cpfToValidate, contractToValidate, segmentName);
-        if (!isContractValid) {
-          client.emit("message-error", { error: "Contrato não localizado ou baixado na API CPC." });
-          return { error: "Contrato não localizado ou baixado na API CPC." };
-        }
-
-        const isAcionamentoOk = await this.cpcService.checkAcionamento(data.contactPhone, contractToValidate, segmentName);
-        if (!isAcionamentoOk) {
-          client.emit("message-error", { error: "Já existe CPC hoje para este cliente." });
-          return { error: "Já existe CPC para este contrato e telefone na data de hoje." };
-        }
-        // -----------------------------------
-
         // Normalizar telefone (remover espaços, hífens, adicionar 55 se necessário)
         const normalizedPhone = this.phoneValidationService.cleanPhone(
           data.contactPhone,
